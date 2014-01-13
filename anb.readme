@@ -1,0 +1,137 @@
+  anb - *a*nb is *n*ot *b*est (README for the free lattice Boltzmann
+  code 'anb' by Joerg Bernsdorf, contact: research AT bernsdorf.org)
+
+
+    Purpose
+
+Starting with lattice gas/Boltzmann in 1992, I found it really hard to
+write a working code from the scratch only by the help of some papers.
+Now, years later, I find it really hard to show newcomers to our group
+the principles of lattice Boltzmann coding by the help of our large and
+complicated code *BEST*, which has been optimized for vector-parallel
+computers.
+
+This is the reason, why I have written a rhichly documented self
+explaining lattice Boltzmann code, where I tried to make everything as
+clear and simple as possible. The code is called *anb*, what simply
+means *a*nb is *n*ot *b*est.
+
+I hope, *anb* could be used for learning and teaching. It could and
+should not be used for 'real' computations, esp. not for time- and
+memory consuming runs on big (and expensive) machines ! Nearly every
+routine in *anb* could be coded more efficient, less memory consuming
+... and less clear.
+
+The source code for 'anb' is distributed under the terms of the GNU
+General Public License <http://www.gnu.org/copyleft/gpl.html>.
+
+
+    Code
+
+*anb* is written is FORTRAN 77, and has been tested on various platforms
+(SUN, HP, SGI, Linux-PC, Fujitsu VPP, Cray T-90, NEC SX 4/5). It
+contains of the source code itself anb.f, one configuration file anb.par
+and one obstacle file anb.obs, which represents the geometry information
+of the flow domain. You can have a look at the source here ! <anb.f>
+
+
+    Usage
+
+Of course, you can just type f77 anb.f (or what ever the FORTRAN 77
+compiler is called on your system ...) and then run the executable. You
+will see some messages written to stdout and - in the end - find some
+new files on your hard disk which are the results of the computation. If
+you have some visualization tool for post processing (like TECPLOT, for
+this you can get a temporarily free license at
+http://www.genias-graphics.de/) you can have a look at the flow you just
+simulated by the help of *anb*. Maybe you should do this, to see if
+everything works ... But then, you should do, what the code has been
+written for: *read and try to understand the source of anb.f <anb.f>*
+
+
+    anb-package
+
+The package contains:
+
+    * *anb.f:* The source code in FORTRAN 77.
+    * *anb.par:* The configuration file for *anb*.
+    * *anb.obs:* The geometry information file.
+    * *readme.htm* This text.
+    * *COPYING:* The GNU General Public License
+      <http://www.gnu.org/copyleft/gpl.html>. 
+
+You can dwonload the "tar.gz"-package here:
+bernsdorf.org/research/anb.tar.gz 
+
+
+      The configuration files
+
+    * *anb.par:* The configuration file for *anb*. Example:| 3000
+      0.1
+      0.005
+      1.85
+      10 
+
+      Meaning:
+      1. line: 3000 - number of iterations
+      2. line: 0.1 - density per link
+      3. line: 0.005 - acceleration
+      4. line: 1.85 - relaxation parameter
+      5. line: 10 - dimension for Reynolds number Have a look at the
+      subroutine read_parameters in anb.f for more details !
+
+    * *anb.obs:* The geometry information file for *anb*. Example:| 1 1
+      2 1
+      3 1 
+      Meaning:
+      x- and y-coordinates of occupied nodes are listed here, one line
+      for each node. The order does not matter. Also the wall boundary
+      nodes have to be defined in this way ! Have a look at the
+      subroutine read_obstacles in anb.f for more details ! 
+
+
+      The result files
+
+    * *anb_qx.out:* The average velocity of the simulated flow. A good
+      control if the simulated flow reached steady state is to monitor
+      the average flow velocity at a certain cross section of the
+      computational domain as function of time (iterations). You can
+      watch this file for example with the free software xmgr
+      <http://plasma-gate.weizmann.ac.il/Xmgr/>. Example output:| 26
+      1.7849222047450D-04
+      27 2.4511573992305D-04
+      28 3.1222702284171D-04
+      ...
+      2999 3.2984900438651D-03
+      3000 3.2985335497016D-03
+      3001 3.2985335497016D-03 
+      
+      Meaning:
+      The column is the iteration number, the second one the computed
+      flow velocity.
+
+    * *anb.dat:* The results of the computation. Here, the velocity
+      components, the local pressure and the obstacle information are
+      stored. A header for the post processing tool TECPLOT is also
+      written. If you have some other post processing tool, you should
+      change the necessary things in anb's subroutine datout. Otherwise,
+      it might be a good idea to get a free evaluation license for
+      TECPLOT. Example output:| VARIABLES = X, Y, VX, VY, PRESS, OBST
+      ZONE I= 30, J= 20, F=POINT
+      1 1 0. 0. 3.3333333333333D-02 1
+      2 1 0. 0. 3.3333333333333D-02 1
+      3 1 0. 0. 3.3333333333333D-02 1
+      4 1 0. 0. 3.3333333333333D-02 1
+      ...
+      4 11 3.2778327874759D-03 2.4387587283551D-04 3.3355060665745D-02 0
+      5 11 2.7312371998704D-03 3.1218767491485D-04 3.3355269776544D-02 0
+      6 11 2.0203030622604D-03 3.6169210828650D-04 3.3357471944278D-02 0
+      ...  
+      
+      Meaning: Each line in the file anb.dat stands for one
+      lattice node. The x- and y-coordinate of the node is stored in the
+      first two columns, followed by the x- and y-component of the
+      velocity, the local pressure and the information, if the
+      considered node is occupied by an obstacle (1) or a fluid node (0). 
+
+© Copyright 2008 Jörg Bernsdorf
