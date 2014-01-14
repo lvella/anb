@@ -3,13 +3,21 @@ import operator
 import itertools
 
 class Matrix2(list):
-    def __init__(self, default, lx, ly):
-        self.lx = lx
-        self.ly = ly
-        size = lx * ly
+    def __init__(self, default, *dims):
+        self.dims = dims
+        coefs = []
+
+        # Coeficients for calculating linear index
+        size = 1
+        for d in dims:
+            size *= d
+            coefs.append(size)
+        self.coefs = coefs
+
         self.extend([default] * size)
 
-    def _key_map(self, (x, y)):
+    def _key_map(self, key):
+        # TODO: to be continued
         return y * self.lx + x
 
     def __getitem__(self, key):
@@ -45,6 +53,13 @@ def read_obstacles(lx, ly):
             print '!!! lx =', x, ' , ly =', y
             print '!!!'
     return obst
+
+def init_density(lx, ly, density):
+    t_0 = density * 4.0 / 9.0
+    t_1 = density / 9.0
+    t_2 = density / 36.0
+
+    #node = # TODO: to be continued
 
 def main():
     if len(sys.argv) >= 3:
