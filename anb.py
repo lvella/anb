@@ -54,12 +54,12 @@ def read_parametrs():
     return ret
 
 def read_obstacles(lx, ly):
-    obst = Matrix(False, lx, ly)
+    obst = set()
     obst_file = open('anb.obs', 'r')
     for line in obst_file:
         (x, y) = [int(n) - 1 for n in line.split()]
         if 0 <= x < lx and 0 <= y < ly:
-            obst[x, y] = True
+            obst.add((x, y))
         else:
             print '!!! Obstacle out of range, skipped'
             print '!!! lx =', x, ' , ly =', y
@@ -86,28 +86,93 @@ def redistribute(obst, node, accel, density):
     t_1 = density * accel / 9.0
     t_2 = density * accel / 36.0
 
-    for y in obst.dims[1]:
-        if (not obst[0, y]
-            and node[2, 0, y] - t_1 > 0
-            and node[5, 0, y] - t_2 > 0
+    for y in xrange(node.dims[2]):
+        if ((0, y) not in obst
+            and node[3, 0, y] - t_1 > 0
             and node[6, 0, y] - t_2 > 0
+            and node[7, 0, y] - t_2 > 0
             ):
 
-            node[0, 0, y] += t_1
-            node[2, 0, y] -= t_1
-            node[4, 0, y] += t_2
-            node[5, 0, y] -= t_2
+            node[1, 0, y] += t_1
+            node[3, 0, y] -= t_1
+            node[5, 0, y] += t_2
             node[6, 0, y] -= t_2
-            node[7, 0, y] += t_2
+            node[7, 0, y] -= t_2
+            node[8, 0, y] += t_2
 
-def propagate():
-    pass
+def propagate(node, n_hlp):
+    lx = node.dims[1]
+    ly = node.dims[2]
 
-def bouceback(obst, node, n_hlp):
-    pass
+    for x in xrange(lx):
+        x_e = (x+1) % lx
+        x_w = (lx + x - 1) % lx
 
-def relaxation():
-    pass
+        for y in xrange(ly):
+            y_n = (y+1) % ly
+            y_s = (ly + x - 1) % ly
+
+            for i, dx, dy in (
+                (0, x, y),
+                (1, x_e, y),
+                (2, x, y_n),
+                (3, x_w, y),
+                (4, x, y_s),
+                (5, x_e, y_n),
+                (6, x_w, y_n),
+                (7, x_w, y_s),
+                (8, x_e, y_s)
+            ):
+                n_hlp[i, dx, dy] = node[i, x, y]
+
+def bounceback(obst, node, n_hlp):
+    for (x, y) in obst:
+        for (a, b) in bounceback.permute:
+            node[a, x, y] = n_hlp[b, x, y]
+bounceback.permute = ((1,3), (2,4), (3,1), (4,2), (5,7), (6,8), (7,5), (8,6))
+
+def relaxation(density, omega, node, n_hlp, obst):
+    t_0 = 4.0 / 9.0
+    t_1 = 1.0 / 9.0
+    t_2 = 1.0 / 36.0
+    c_squ = 1.0 / 3.0
+
+    for x in xrange(node.dims[1]):
+        for y in xrange(node.dims[2]):
+            if (x, y) in obst:
+                continue
+
+            d_loc = 0.0
+            for i in xrange(9):
+                d_loc += n_hlp[i, x, y]
+
+            u_x = (n_hlp[1,x,y] + n_hlp[5,x,y] + n_hlp[8,x,y]
+                    - (n_hlp[3,x,y] + n_hlp[6,x,y] + n_hlp[7,x,y])) / d_loc
+
+            u_y = (n_hlp[2,x,y] + n_hlp[5,x,y] + n_hlp[6,x,y]
+                    -(n_hlp[4,x,y] + n_hlp[7,x,y] + n_hlp[8,x,y])) / d_loc
+
+            u_squ = u_x * u_x + u_y * u_y
+
+            u_n = [0.0] * 9
+            u_n[1] =   u_x
+            u_n[2] =         u_y
+            u_n[3] = - u_x
+            u_n[4] =       - u_y
+            u_n[5] =   u_x + u_y
+            u_n[6] = - u_x + u_y
+            u_n[7] = - u_x - u_y
+            u_n[8] =   u_x - u_y
+
+            n_equ = [0.0] * 9
+            n_equ[0] = t_0 * d_loc * (1.0 - u_squ / (2.0 * c_squ))
+            for i, t in zip(xrange(1,9), [t_1] * 4 + [t_2] * 4):
+                n_equ[i] = t * d_loc * (1.0 + u_n[i] / c_squ 
+                        + (u_n[i] * u_n[i]) / (2.0 * c_squ * c_squ) 
+                        - u_squ / (2.0 * c_squ))
+
+            for i in xrange(9):
+                node[i,x,y] = n_hlp[i,x,y] + omega * (n_equ[i] - n_hlp[i,x,y])
 
 def write_velocity():
     pass
@@ -141,11 +206,13 @@ def main():
 #            sys.stdout.write('\n')
 #        sys.stdout.write('\n===================================\n\n')
 
+    n_hlp = Matrix(0.0, 9, lx, ly)
+
+    # Main loop:
     for time in xrange(1, t_max+1):
         if time % (t_max//10) == 0:
             check_density(node, time)
 
-        
 
 if __name__ == '__main__':
     main()
