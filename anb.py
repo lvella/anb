@@ -3,6 +3,11 @@ import operator
 import itertools
 import functools
 
+t_0 = 4.0 / 9.0
+t_1 = 1.0 / 9.0
+t_2 = 1.0 / 36.0
+c_squ = 1.0 / 3.0
+
 def slicer(iterator, size, count):
      return (itertools.islice(iterator, size) for i in xrange(count))
 
@@ -28,7 +33,6 @@ class Matrix(list):
             sizes.append(partial)
         sizes.reverse()
         self.sizes = sizes
-        print sizes
 
     def _key_map(self, key):
         return sum((a*b for (a,b) in itertools.izip(self.coefs, key)))
@@ -67,10 +71,6 @@ def read_obstacles(lx, ly):
     return obst
 
 def init_density(lx, ly, density):
-    t_0 = density * 4.0 / 9.0
-    t_1 = density / 9.0
-    t_2 = density / 36.0
-
     node = Matrix(0.0, 9, lx, ly)
     node[:] = ([t_0] + [t_1] * 4 + [t_2] * 4) * (lx * ly)
 
@@ -132,11 +132,6 @@ def bounceback(obst, node, n_hlp):
 bounceback.permute = ((1,3), (2,4), (3,1), (4,2), (5,7), (6,8), (7,5), (8,6))
 
 def relaxation(density, omega, node, n_hlp, obst):
-    t_0 = 4.0 / 9.0
-    t_1 = 1.0 / 9.0
-    t_2 = 1.0 / 36.0
-    c_squ = 1.0 / 3.0
-
     for x in xrange(node.dims[1]):
         for y in xrange(node.dims[2]):
             if (x, y) in obst:
@@ -174,14 +169,77 @@ def relaxation(density, omega, node, n_hlp, obst):
             for i in xrange(9):
                 node[i,x,y] = n_hlp[i,x,y] + omega * (n_equ[i] - n_hlp[i,x,y])
 
-def write_velocity():
-    pass
+def write_velocity(output, node, obst, time):
+    x = int(float(node.dims[1]) / 2.0) - 1
 
-def write_results():
-    pass
+    n_free = 0
+    u_x = 0.0
 
-def comp_rey():
-    pass
+    for y in xrange(node.dims[2]):
+        if (x, y) in obst:
+            continue
+
+        d_loc = 0.0
+        for i in xrange(9):
+            d_loc += node[i,x,y]
+
+        u_x += (node[1,x,y] + node[5,x,y] + node[8,x,y]
+                -(node[3,x,y] + node[6,x,y] + node[7,x,y])) / d_loc
+
+        n_free += 1
+
+    vel = u_x / float(n_free)
+    output.write('{} {}\n'.format(time, vel))
+    return vel
+
+def write_results(obst, node, density):
+    lx, ly = node.dims[1:3]
+    with open('anb.dat', 'w') as output:
+        output.write('VARIABLES = X, Y, VX, VY, PRESS, OBST\nZONE I={}, J={}, F=POINT\n'.format(lx, ly))
+
+        for y in xrange(ly):
+            for x in xrange(lx):
+                if (x, y) in obst:
+                    obsval = 1
+                    u_x = 0.0
+                    u_y = 0.0
+
+                    press = density * c_squ
+            
+                else:
+                    d_loc = 0.0
+                    for i in xrange(9):
+                        d_loc += node[i,x,y]
+
+                    # TODO: these velocity value should obviously be cached...
+                    u_x = (node[1,x,y] + node[5,x,y] + node[8,x,y]
+                            -(node[3,x,y] + node[6,x,y] + node[7,x,y])) / d_loc
+
+                    u_y = (node[2,x,y] + node[5,x,y] + node[6,x,y]
+                            -(node[4,x,y] + node[7,x,y] + node[8,x,y])) / d_loc
+
+                    press = d_loc * c_squ
+
+                    obsval = 0
+                output.write(('{} {} {} {} {} {}\n').format(x, y, u_x, u_y, press, obsval))
+
+def comp_rey(obst, node, time, omega, density, r_rey, vel):
+    visc = 1.0/6.0 * (2.0 / omega - 1.0)
+    rey = vel * r_rey / visc
+
+    print '*** Calculations finished, results:'
+    print '***'
+    print '*** viscosity = ', visc
+    print '*** average velocity = ', vel
+    print '*** Reynolds number = ', rey
+    print '***'
+    print '*** In the file anb.dat, you can find local'
+    print '*** information about the simulated flow.'
+    print '***'
+    print '*** In the file anb_qx.out, you can find the average'
+    print '*** flow velocity plotted as a function of time.'
+    print '***'
+
 
 def main():
     if len(sys.argv) >= 3:
@@ -208,11 +266,24 @@ def main():
 
     n_hlp = Matrix(0.0, 9, lx, ly)
 
+    vel_output = open('anb_qxm.out', 'w')
+
     # Main loop:
     for time in xrange(1, t_max+1):
         if time % (t_max//10) == 0:
             check_density(node, time)
 
+        redistribute(obst, node, accel, density)
+        propagate(node, n_hlp)
+        bounceback(obst, node, n_hlp)
+        relaxation(density, omega, node, n_hlp, obst)
+        write_velocity(vel_output, node, obst, time)
+
+    write_results(obst, node, density)
+    vel = write_velocity(vel_output, node, obst, time)
+    comp_rey(obst, node, time, omega, density, r_rey, vel)
+
+    vel_output.close()
 
 if __name__ == '__main__':
     main()
